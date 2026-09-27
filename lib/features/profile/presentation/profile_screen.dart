@@ -368,7 +368,6 @@ class ProfileScreen extends ConsumerWidget {
   }) {
     return Material(
       color: isDark ? AppColors.darkCard : Colors.white,
-      borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),

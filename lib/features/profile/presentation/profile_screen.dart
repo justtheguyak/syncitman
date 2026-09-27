@@ -302,7 +302,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'CoupleSync v1.0.0 • Made with love',
+                  'CoupleSync v1.0.1 • Made with love',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark

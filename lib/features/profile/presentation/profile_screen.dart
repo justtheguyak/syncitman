@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -59,7 +62,14 @@ class ProfileScreen extends ConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildAvatarCircle(myName, isMe: true),
+                          _buildAvatarCircle(
+                            context: context,
+                            ref: ref,
+                            name: myName,
+                            avatarUrl: state.currentProfile?.avatarUrl,
+                            userId: user?.id,
+                            isMe: true,
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Container(
@@ -76,28 +86,74 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                           ),
                           _buildAvatarCircle(
-                            isPartnerLinked ? partner.displayName : 'Partner',
+                            context: context,
+                            ref: ref,
+                            name: isPartnerLinked
+                                ? partner.displayName
+                                : (state.potentialPartners.isNotEmpty
+                                    ? state.potentialPartners.first.displayName
+                                    : 'Partner'),
+                            avatarUrl: isPartnerLinked
+                                ? partner.avatarUrl
+                                : (state.potentialPartners.isNotEmpty
+                                    ? state.potentialPartners.first.avatarUrl
+                                    : null),
+                            userId: isPartnerLinked
+                                ? partner.id
+                                : (state.potentialPartners.isNotEmpty
+                                    ? state.potentialPartners.first.id
+                                    : null),
                             isMe: false,
-                            isUnlinked: !isPartnerLinked,
+                            isUnlinked: !isPartnerLinked &&
+                                state.potentialPartners.isEmpty,
+                            onUnlinkedTap: () => _showLinkPartnerDialog(
+                                context, ref, state.potentialPartners),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.touch_app_rounded,
+                                color: Colors.white, size: 13),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tap your photo to change 📸',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         isPartnerLinked
                             ? '$myName & ${partner.displayName}'
-                            : myName,
+                            : (state.potentialPartners.isNotEmpty
+                                ? '$myName & ${state.potentialPartners.first.displayName}'
+                                : myName),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         isPartnerLinked
                             ? 'Syncing tasks & memories together 💕'
-                            : 'Partner not linked yet',
+                            : 'Partner linked • Ready to sync 💕',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 13,
@@ -449,24 +505,465 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAvatarCircle(String name,
-      {required bool isMe, bool isUnlinked = false}) {
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: isUnlinked ? Colors.white24 : Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+  Widget _buildAvatarCircle({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String name,
+    required String? avatarUrl,
+    required String? userId,
+    required bool isMe,
+    bool isUnlinked = false,
+    VoidCallback? onUnlinkedTap,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        if (isMe && userId != null) {
+          _showAvatarPickerSheet(context, ref, name, userId, avatarUrl);
+        } else if (isUnlinked && onUnlinkedTap != null) {
+          onUnlinkedTap();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Only $name can change their own profile picture 💕'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: isUnlinked ? Colors.white24 : Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: _buildAvatarContent(name, avatarUrl, isUnlinked: isUnlinked),
+          ),
+          if (isMe)
+            Positioned(
+              bottom: -2,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  size: 13,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else if (isUnlinked)
+            Positioned(
+              bottom: -2,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Icon(
+                  Icons.link_rounded,
+                  size: 13,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        ],
       ),
-      alignment: Alignment.center,
+    );
+  }
+
+  Widget _buildAvatarContent(String name, String? avatarUrl,
+      {required bool isUnlinked}) {
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      if (avatarUrl.startsWith('data:image')) {
+        try {
+          final commaIndex = avatarUrl.indexOf(',');
+          final base64Data = commaIndex != -1
+              ? avatarUrl.substring(commaIndex + 1)
+              : avatarUrl;
+          final bytes = base64Decode(base64Data);
+          return ClipOval(
+            child: Image.memory(
+              bytes,
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+              errorBuilder: (_, error, stackTrace) =>
+                  _buildInitialText(name, isUnlinked),
+            ),
+          );
+        } catch (_) {
+          return _buildInitialText(name, isUnlinked);
+        }
+      } else if (avatarUrl.startsWith('http')) {
+        return ClipOval(
+          child: Image.network(
+            avatarUrl,
+            width: 72,
+            height: 72,
+            fit: BoxFit.cover,
+            errorBuilder: (_, error, stackTrace) =>
+                _buildInitialText(name, isUnlinked),
+          ),
+        );
+      } else if (avatarUrl.startsWith('emoji:')) {
+        final emoji = avatarUrl.replaceFirst('emoji:', '');
+        return Center(
+          child: Text(
+            emoji,
+            style: const TextStyle(fontSize: 34),
+          ),
+        );
+      }
+    }
+    return _buildInitialText(name, isUnlinked);
+  }
+
+  Widget _buildInitialText(String name, bool isUnlinked) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return Center(
       child: Text(
         initial,
         style: TextStyle(
           fontSize: 26,
           fontWeight: FontWeight.bold,
           color: isUnlinked ? Colors.white70 : AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  void _showAvatarPickerSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String name,
+    String targetUserId,
+    String? currentAvatarUrl,
+  ) {
+    final picker = ImagePicker();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.photo_camera_rounded,
+                        color: AppColors.secondary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Profile Picture for $name',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Choose a photo or romantic couple avatar',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Cute Preset Avatars
+              const Text(
+                'Quick Romantic Avatars:',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 52,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    '🤴',
+                    '👸',
+                    '💖',
+                    '💍',
+                    '🌸',
+                    '🐱',
+                    '🐶',
+                    '🐻',
+                    '🐼',
+                    '✨',
+                    '🌹',
+                    '🍓',
+                    '☕'
+                  ].map((emoji) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          await ref
+                              .read(profileNotifierProvider.notifier)
+                              .updateAvatar(targetUserId, 'emoji:$emoji');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    Text('Avatar updated for $name! $emoji'),
+                                backgroundColor: AppColors.statusDone,
+                              ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: currentAvatarUrl == 'emoji:$emoji'
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+
+              // Pick from Gallery
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: AppColors.primary, size: 20),
+                ),
+                title: const Text('Choose from Gallery'),
+                subtitle: const Text('Select any photo from your phone'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final picked = await picker.pickImage(
+                      source: ImageSource.gallery,
+                      maxWidth: 400,
+                      maxHeight: 400,
+                      imageQuality: 75,
+                    );
+                    if (picked != null) {
+                      final bytes = await picked.readAsBytes();
+                      final base64String =
+                          'data:image/jpeg;base64,${base64Encode(bytes)}';
+                      await ref
+                          .read(profileNotifierProvider.notifier)
+                          .updateAvatar(targetUserId, base64String);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Profile picture set for $name! 📸'),
+                            backgroundColor: AppColors.statusDone,
+                          ),
+                        );
+                      }
+                    }
+                  } on PlatformException catch (e) {
+                    if (context.mounted) {
+                      final msg = (e.code == 'photo_access_denied')
+                          ? 'Gallery permission denied. Please allow Photos/Media permission in phone settings.'
+                          : 'Gallery access error: ${e.message ?? e.code}';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(msg),
+                          backgroundColor: AppColors.priorityHigh,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to pick photo: $e'),
+                          backgroundColor: AppColors.priorityHigh,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+
+              // Take Photo
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: AppColors.secondary, size: 20),
+                ),
+                title: const Text('Take a Photo'),
+                subtitle: const Text('Capture using phone camera'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final picked = await picker.pickImage(
+                      source: ImageSource.camera,
+                      maxWidth: 400,
+                      maxHeight: 400,
+                      imageQuality: 75,
+                    );
+                    if (picked != null) {
+                      final bytes = await picked.readAsBytes();
+                      final base64String =
+                          'data:image/jpeg;base64,${base64Encode(bytes)}';
+                      await ref
+                          .read(profileNotifierProvider.notifier)
+                          .updateAvatar(targetUserId, base64String);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('Profile photo updated for $name! 📸'),
+                            backgroundColor: AppColors.statusDone,
+                          ),
+                        );
+                      }
+                    }
+                  } on PlatformException catch (e) {
+                    if (context.mounted) {
+                      final msg = (e.code == 'camera_access_denied')
+                          ? 'Camera permission denied. Please allow Camera permission in phone settings.'
+                          : 'Camera access error: ${e.message ?? e.code}';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(msg),
+                          backgroundColor: AppColors.priorityHigh,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Camera error: $e'),
+                          backgroundColor: AppColors.priorityHigh,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+
+              // Remove Photo (if set)
+              if (currentAvatarUrl != null) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.priorityHigh.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded,
+                        color: AppColors.priorityHigh, size: 20),
+                  ),
+                  title: const Text(
+                    'Remove Picture',
+                    style: TextStyle(color: AppColors.priorityHigh),
+                  ),
+                  subtitle: const Text('Revert back to letter initial'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await ref
+                        .read(profileNotifierProvider.notifier)
+                        .updateAvatar(targetUserId, null);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Profile picture removed for $name'),
+                          backgroundColor: AppColors.statusDone,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

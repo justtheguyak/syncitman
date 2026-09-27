@@ -8,8 +8,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   display_name TEXT NOT NULL,
   partner_id UUID REFERENCES public.profiles(id),
+  avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration for existing profiles table
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
 -- Trigger to create profile when auth.users is created
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -77,7 +81,8 @@ CREATE POLICY "profiles_read" ON public.profiles
   FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
-CREATE POLICY "profiles_update_own" ON public.profiles
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+CREATE POLICY "profiles_update" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
@@ -124,11 +129,27 @@ CREATE POLICY "reminders_insert" ON public.reminders
 
 DROP POLICY IF EXISTS "reminders_update" ON public.reminders;
 CREATE POLICY "reminders_update" ON public.reminders
-  FOR UPDATE USING (auth.uid() = owner_id);
+  FOR UPDATE USING (
+    auth.uid() = owner_id
+    OR (
+      is_shared = true
+      AND owner_id IN (
+        SELECT partner_id FROM public.profiles WHERE id = auth.uid()
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "reminders_delete" ON public.reminders;
 CREATE POLICY "reminders_delete" ON public.reminders
-  FOR DELETE USING (auth.uid() = owner_id);
+  FOR DELETE USING (
+    auth.uid() = owner_id
+    OR (
+      is_shared = true
+      AND owner_id IN (
+        SELECT partner_id FROM public.profiles WHERE id = auth.uid()
+      )
+    )
+  );
 
 -- 8. Enable Realtime Replication for Tasks & Reminders
 DO $$

@@ -73,6 +73,12 @@ class ProfileRepository {
     }).eq('id', userId);
   }
 
+  Future<void> updateAvatar(String userId, String? avatarUrl) async {
+    await _client.from('profiles').update({
+      'avatar_url': avatarUrl,
+    }).eq('id', userId);
+  }
+
   Future<void> linkPartner(String currentUserId, String partnerId) async {
     // Two-way link
     await _client.from('profiles').update({

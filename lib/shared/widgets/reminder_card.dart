@@ -8,6 +8,7 @@ class ReminderCard extends StatelessWidget {
   final bool isOwner;
   final ValueChanged<bool>? onToggleComplete;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
   const ReminderCard({
     super.key,
@@ -15,6 +16,7 @@ class ReminderCard extends StatelessWidget {
     required this.isOwner,
     this.onToggleComplete,
     this.onDelete,
+    this.onTap,
   });
 
   @override
@@ -34,11 +36,14 @@ class ReminderCard extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Checkbox
             GestureDetector(
               onTap: () {
@@ -162,11 +167,21 @@ class ReminderCard extends StatelessWidget {
                   color: Colors.grey.shade400,
                 ),
                 onPressed: onDelete,
+              )
+            else if (onTap != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: isDark ? Colors.white30 : Colors.black26,
+                ),
               ),
           ],
         ),
       ),
-    );
+    ),
+  );
 
     if (isOwner && onDelete != null) {
       return Dismissible(

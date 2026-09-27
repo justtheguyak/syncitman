@@ -84,6 +84,12 @@ class ProfileNotifier extends AsyncNotifier<ProfileState> {
     await repo.linkPartner(user.id, partnerId);
     await refresh();
   }
+
+  Future<void> updateAvatar(String targetUserId, String? avatarUrl) async {
+    final repo = ref.read(profileRepositoryProvider);
+    await repo.updateAvatar(targetUserId, avatarUrl);
+    await refresh();
+  }
 }
 
 final profileNotifierProvider =

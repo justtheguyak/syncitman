@@ -6,6 +6,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/reminder_card.dart';
 import 'create_reminder_screen.dart';
+import 'reminder_detail_screen.dart';
 import 'reminders_notifier.dart';
 
 class RemindersScreen extends ConsumerWidget {
@@ -72,6 +73,14 @@ class RemindersScreen extends ConsumerWidget {
                     return ReminderCard(
                       reminder: reminder,
                       isOwner: isOwner,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ReminderDetailScreen(reminder: reminder),
+                          ),
+                        );
+                      },
                       onToggleComplete: (done) {
                         ref
                             .read(remindersProvider.notifier)
@@ -102,6 +111,14 @@ class RemindersScreen extends ConsumerWidget {
                     return ReminderCard(
                       reminder: reminder,
                       isOwner: isOwner,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ReminderDetailScreen(reminder: reminder),
+                          ),
+                        );
+                      },
                       onToggleComplete: (done) {
                         ref
                             .read(remindersProvider.notifier)

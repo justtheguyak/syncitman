@@ -184,6 +184,50 @@ class NotificationService {
     }
   }
 
+  /// Displays an immediate notification (e.g. when partner sets a shared reminder)
+  static Future<bool> showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    try {
+      if (!_initialized) await init();
+      await requestPermissions();
+
+      const androidDetails = AndroidNotificationDetails(
+        'couplesync_shared_reminders',
+        'Shared Reminders & Partner Alerts',
+        channelDescription: 'Notifications when your partner sets or updates shared reminders',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      const darwinDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        payload: payload,
+        notificationDetails: const NotificationDetails(
+          android: androidDetails,
+          iOS: darwinDetails,
+        ),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Failed to show notification: $e');
+      return false;
+    }
+  }
+
   /// Sends an immediate test notification right now
   static Future<bool> showImmediateNotification({
     String title = 'CoupleSync ❤️',

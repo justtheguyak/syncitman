@@ -43,36 +43,42 @@ class NotificationService {
     }
   }
 
-  static Future<void> requestPermissions() async {
+  static Future<bool> requestPermissions() async {
     try {
-      if (kIsWeb) return;
+      if (kIsWeb) return true;
       if (Platform.isAndroid) {
         final androidImplementation = _plugin
             .resolvePlatformSpecificImplementation<
                 AndroidFlutterLocalNotificationsPlugin>();
-        await androidImplementation?.requestNotificationsPermission();
+        final notifGranted =
+            await androidImplementation?.requestNotificationsPermission();
         await androidImplementation?.requestExactAlarmsPermission();
+        return notifGranted ?? true;
       } else if (Platform.isIOS) {
         final iosImplementation = _plugin
             .resolvePlatformSpecificImplementation<
                 IOSFlutterLocalNotificationsPlugin>();
-        await iosImplementation?.requestPermissions(
+        final granted = await iosImplementation?.requestPermissions(
           alert: true,
           badge: true,
           sound: true,
         );
+        return granted ?? true;
       } else if (Platform.isMacOS) {
         final macosImplementation = _plugin
             .resolvePlatformSpecificImplementation<
                 MacOSFlutterLocalNotificationsPlugin>();
-        await macosImplementation?.requestPermissions(
+        final granted = await macosImplementation?.requestPermissions(
           alert: true,
           badge: true,
           sound: true,
         );
+        return granted ?? true;
       }
+      return true;
     } catch (e) {
       debugPrint('Error requesting notification permissions: $e');
+      return false;
     }
   }
 
@@ -175,6 +181,87 @@ class NotificationService {
           'Scheduled weekly notification $id on weekday $weekday at $hour:$minute');
     } catch (e) {
       debugPrint('Failed to schedule weekly notification: $e');
+    }
+  }
+
+  /// Sends an immediate test notification right now
+  static Future<bool> showImmediateNotification({
+    String title = 'CoupleSync ❤️',
+    String body = 'Test notification working! Stay connected and accomplish together.',
+  }) async {
+    try {
+      if (!_initialized) await init();
+      await requestPermissions();
+
+      const androidDetails = AndroidNotificationDetails(
+        'couplesync_test_channel',
+        'CoupleSync Test Alerts',
+        channelDescription: 'Direct alerts and test notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      const darwinDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      await _plugin.show(
+        id: 999999,
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(
+          android: androidDetails,
+          iOS: darwinDetails,
+        ),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Failed to show immediate notification: $e');
+      return false;
+    }
+  }
+
+  /// Schedules a test notification in [delaySeconds] (defaults to 5 seconds)
+  static Future<bool> scheduleTestNotification({int delaySeconds = 5}) async {
+    try {
+      if (!_initialized) await init();
+      await requestPermissions();
+
+      final scheduledDate =
+          tz.TZDateTime.now(tz.local).add(Duration(seconds: delaySeconds));
+
+      await _plugin.zonedSchedule(
+        id: 888888,
+        title: 'CoupleSync Test 🔔',
+        body:
+            'Scheduled test notification arrived after $delaySeconds seconds! ❤️',
+        scheduledDate: scheduledDate,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'couplesync_test_channel',
+            'CoupleSync Test Alerts',
+            channelDescription: 'Direct alerts and test notifications',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Failed to schedule test notification: $e');
+      return false;
     }
   }
 

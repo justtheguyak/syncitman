@@ -22,6 +22,10 @@ class UpdateState {
     this.errorMessage,
   });
 
+  /// Mandatory update flag: whenever an update is available, full-screen blocking UI takes over
+  bool get hasMandatoryUpdate =>
+      updateInfo != null && updateInfo!.isUpdateAvailable;
+
   bool get hasUpdate =>
       updateInfo != null && updateInfo!.isUpdateAvailable && !isDismissed;
 
@@ -70,7 +74,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       state = state.copyWith(
         isChecking: false,
         updateInfo: info,
-        isDismissed: false, // Reset dismissed if explicitly checking
+        isDismissed: false,
       );
     } catch (e) {
       state = state.copyWith(
@@ -84,17 +88,21 @@ class UpdateNotifier extends Notifier<UpdateState> {
     state = state.copyWith(isDismissed: true);
   }
 
-  /// Trigger OTA download and Android package installation
+  void resetUpdate() {
+    _otaSubscription?.cancel();
+    state = const UpdateState();
+  }
+
+  /// Trigger OTA direct APK download and Android package installation without external browser redirect
   Future<void> startUpdate(BuildContext context) async {
     final info = state.updateInfo;
     if (info == null) return;
 
-    final apkUrl = info.apkDownloadUrl;
-    if (apkUrl == null || apkUrl.isEmpty) {
-      // If no direct APK asset in release, open GitHub release page in browser
-      await UpdateService.openReleaseInBrowser(info.htmlUrl);
-      return;
-    }
+    // Direct APK download link from GitHub release
+    final String apkUrl = (info.apkDownloadUrl != null &&
+            info.apkDownloadUrl!.isNotEmpty)
+        ? info.apkDownloadUrl!
+        : 'https://github.com/${UpdateService.githubOwner}/${UpdateService.githubRepo}/releases/download/v${info.latestVersion}/app-release.apk';
 
     // Cancel any previous subscription
     await _otaSubscription?.cancel();
@@ -134,7 +142,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
             case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
               state = state.copyWith(
                 errorMessage:
-                    'Install permission not granted. Please allow installs in Android settings.',
+                    'Install permission not granted. Please enable install permissions for CoupleSync in Android Settings.',
               );
               break;
             case OtaStatus.DOWNLOAD_ERROR:
@@ -142,31 +150,31 @@ class UpdateNotifier extends Notifier<UpdateState> {
             case OtaStatus.CHECKSUM_ERROR:
             default:
               state = state.copyWith(
+                otaStatus: null,
                 errorMessage:
-                    'Could not download update (${event.status.name}). Opening browser download...',
+                    'Download failed (${event.status.name}). Please tap Retry Update.',
               );
-              UpdateService.openReleaseInBrowser(apkUrl);
               break;
           }
         },
         onError: (err) {
           debugPrint('OTA stream error: $err');
           state = state.copyWith(
-            errorMessage: 'Update download failed: $err',
+            otaStatus: null,
+            errorMessage: 'Download interrupted. Tap Retry Update to continue.',
           );
-          UpdateService.openReleaseInBrowser(apkUrl);
         },
       );
     } catch (e) {
       debugPrint('OTA start error: $e');
       state = state.copyWith(
-        errorMessage: 'Failed to initiate update: $e',
+        otaStatus: null,
+        errorMessage: 'Failed to start download: $e',
       );
-      UpdateService.openReleaseInBrowser(apkUrl);
     }
   }
 
-  /// For testing/demo purposes when no release exists yet on GitHub
+  /// For testing/demo purposes when previewing the full-screen mandatory update UI
   void simulateUpdateAvailable() {
     state = state.copyWith(
       isChecking: false,
@@ -177,7 +185,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
         isUpdateAvailable: true,
         releaseName: 'CoupleSync v1.0.1 🚀',
         releaseNotes:
-            '• Added weekly repeating reminders for couples\n• Added in-app OTA auto updates with GitHub Releases\n• Added one-tap "Update Now" installer\n• UI performance enhancements',
+            '• Mandatory couple sync update\n• Weekly repeating reminders enabled\n• Direct in-app background OTA installer\n• UI performance enhancements',
         apkDownloadUrl:
             'https://github.com/justtheguyak/syncitman/releases/latest/download/app-release.apk',
         apkFileName: 'CoupleSync-v1.0.1.apk',

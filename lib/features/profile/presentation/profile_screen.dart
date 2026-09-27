@@ -8,7 +8,6 @@ import '../../../shared/widgets/theme_toggle.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
-import '../../updates/presentation/widgets/update_dialog.dart';
 import 'profile_notifier.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -200,17 +199,15 @@ class ProfileScreen extends ConsumerWidget {
 
                         final state = ref.read(updateNotifierProvider);
                         if (context.mounted) {
-                          if (state.updateInfo != null &&
-                              state.updateInfo!.isUpdateAvailable) {
-                            UpdateDialog.show(context, state.updateInfo!);
-                          } else if (state.errorMessage != null) {
+                          if (state.errorMessage != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(state.errorMessage!),
                                 backgroundColor: AppColors.priorityHigh,
                               ),
                             );
-                          } else {
+                          } else if (state.updateInfo == null ||
+                              !state.updateInfo!.isUpdateAvailable) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
@@ -219,35 +216,10 @@ class ProfileScreen extends ConsumerWidget {
                               ),
                             );
                           }
+                          // If update is available, the app builder automatically transitions to MandatoryUpdateScreen!
                         }
                       },
                     ),
-                    if (updateState.updateInfo?.isUpdateAvailable == true) ...[
-                      Divider(
-                        height: 1,
-                        indent: 56,
-                        color: isDark
-                            ? AppColors.darkBorder
-                            : AppColors.lightBorder,
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.rocket_launch_rounded,
-                            color: AppColors.secondary),
-                        title: Text(
-                          'Update to v${updateState.updateInfo!.latestVersion}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: const Text('Tap "Update Now" to install'),
-                        trailing: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                          ),
-                          onPressed: () => UpdateDialog.show(
-                              context, updateState.updateInfo!),
-                          child: const Text('Update Now'),
-                        ),
-                      ),
-                    ],
                     Divider(
                       height: 1,
                       indent: 56,
@@ -257,19 +229,14 @@ class ProfileScreen extends ConsumerWidget {
                     ListTile(
                       leading: const Icon(Icons.science_outlined,
                           color: Colors.amber),
-                      title: const Text('Demo Update Now Flow'),
-                      subtitle:
-                          const Text('Preview update dialog & install action'),
+                      title: const Text('Demo Mandatory Update Screen'),
+                      subtitle: const Text(
+                          'Preview the full-screen mandatory OTA update view'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         ref
                             .read(updateNotifierProvider.notifier)
                             .simulateUpdateAvailable();
-                        final info =
-                            ref.read(updateNotifierProvider).updateInfo;
-                        if (info != null && context.mounted) {
-                          UpdateDialog.show(context, info);
-                        }
                       },
                     ),
                   ],

@@ -7,7 +7,6 @@ import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/task_card.dart';
 import '../../profile/presentation/profile_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
-import '../../updates/presentation/widgets/update_banner.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'tasks_notifier.dart';
@@ -31,12 +30,6 @@ class TasksScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // OTA Update Banner
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: UpdateBanner(),
-          ),
-
           // Filter Chips Row
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

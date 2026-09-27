@@ -366,11 +366,13 @@ class ProfileScreen extends ConsumerWidget {
     required bool isDark,
     required List<Widget> children,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
+    return Material(
+      color: isDark ? AppColors.darkCard : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
+        side: BorderSide(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
       ),

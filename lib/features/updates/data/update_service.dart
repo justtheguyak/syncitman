@@ -17,8 +17,8 @@ class UpdateService {
     try {
       final info = await PackageInfo.fromPlatform();
       return info.version;
-    } catch (e) {
-      debugPrint('Error getting package info: $e');
+    } catch (_) {
+      // Fallback if app hasn't been cold-restarted after adding package_info_plus
       return '1.0.0';
     }
   }

@@ -5,7 +5,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/theme_toggle.dart';
-import '../../../shared/services/notification_service.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
 import 'profile_notifier.dart';
@@ -217,88 +216,6 @@ class ProfileScreen extends ConsumerWidget {
                             );
                           }
                           // If update is available, the app builder automatically transitions to MandatoryUpdateScreen!
-                        }
-                      },
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 56,
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.science_outlined,
-                          color: Colors.amber),
-                      title: const Text('Demo Mandatory Update Screen'),
-                      subtitle: const Text(
-                          'Preview the full-screen mandatory OTA update view'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {
-                        ref
-                            .read(updateNotifierProvider.notifier)
-                            .simulateUpdateAvailable();
-                      },
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Notifications Testing Section
-                _buildCardContainer(
-                  isDark: isDark,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.notifications_active_rounded,
-                          color: AppColors.secondary),
-                      title: const Text('Test Instant Notification'),
-                      subtitle:
-                          const Text('Trigger a test notification right now'),
-                      trailing: const Icon(Icons.send_rounded, size: 20),
-                      onTap: () async {
-                        final ok =
-                            await NotificationService.showImmediateNotification();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ok
-                                  ? 'Notification sent! Check your notification bar 🔔'
-                                  : 'Could not send notification. Check permissions.'),
-                              backgroundColor: ok
-                                  ? AppColors.statusDone
-                                  : AppColors.priorityHigh,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 56,
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.timer_outlined,
-                          color: AppColors.primary),
-                      title: const Text('Test Scheduled (5s)'),
-                      subtitle:
-                          const Text('Locks phone or wait 5s to see popup'),
-                      trailing: const Icon(Icons.schedule_rounded, size: 20),
-                      onTap: () async {
-                        final ok = await NotificationService
-                            .scheduleTestNotification(delaySeconds: 5);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ok
-                                  ? 'Scheduled in 5 seconds! You can lock or minimize.'
-                                  : 'Could not schedule. Check alarm permissions.'),
-                              backgroundColor: ok
-                                  ? AppColors.statusDone
-                                  : AppColors.priorityHigh,
-                            ),
-                          );
                         }
                       },
                     ),

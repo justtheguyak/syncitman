@@ -88,11 +88,6 @@ class UpdateNotifier extends Notifier<UpdateState> {
     state = state.copyWith(isDismissed: true);
   }
 
-  void resetUpdate() {
-    _otaSubscription?.cancel();
-    state = const UpdateState();
-  }
-
   /// Trigger OTA direct APK download and Android package installation without external browser redirect
   Future<void> startUpdate(BuildContext context) async {
     final info = state.updateInfo;
@@ -172,26 +167,6 @@ class UpdateNotifier extends Notifier<UpdateState> {
         errorMessage: 'Failed to start download: $e',
       );
     }
-  }
-
-  /// For testing/demo purposes when previewing the full-screen mandatory update UI
-  void simulateUpdateAvailable() {
-    state = state.copyWith(
-      isChecking: false,
-      isDismissed: false,
-      updateInfo: const AppUpdateInfo(
-        latestVersion: '1.0.1',
-        currentVersion: '1.0.0',
-        isUpdateAvailable: true,
-        releaseName: 'CoupleSync v1.0.1 🚀',
-        releaseNotes:
-            '• Mandatory couple sync update\n• Weekly repeating reminders enabled\n• Direct in-app background OTA installer\n• UI performance enhancements',
-        apkDownloadUrl:
-            'https://github.com/justtheguyak/syncitman/releases/latest/download/app-release.apk',
-        apkFileName: 'CoupleSync-v1.0.1.apk',
-        htmlUrl: 'https://github.com/justtheguyak/syncitman/releases',
-      ),
-    );
   }
 }
 

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ota_update/ota_update.dart';
@@ -375,25 +374,6 @@ class MandatoryUpdateScreen extends ConsumerWidget {
                                   .read(updateNotifierProvider.notifier)
                                   .startUpdate(context);
                             },
-                          ),
-                        ),
-                      ],
-
-                      // Test Mode Exit (only visible in debug or if simulated)
-                      if (kDebugMode || updateInfo.releaseName.contains('Demo') || updateInfo.releaseNotes.contains('OTA')) ...[
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () {
-                            ref
-                                .read(updateNotifierProvider.notifier)
-                                .resetUpdate();
-                          },
-                          child: const Text(
-                            'Exit Demo Mode',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
                           ),
                         ),
                       ],

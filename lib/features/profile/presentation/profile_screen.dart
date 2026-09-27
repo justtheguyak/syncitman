@@ -7,6 +7,8 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/theme_toggle.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../auth/presentation/auth_notifier.dart';
+import '../../updates/presentation/update_notifier.dart';
+import '../../updates/presentation/widgets/update_dialog.dart';
 import 'profile_notifier.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -15,6 +17,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileNotifierProvider);
+    final updateState = ref.watch(updateNotifierProvider);
     final user = SupabaseConfig.client.auth.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -163,6 +166,112 @@ class ProfileScreen extends ConsumerWidget {
                   isDark: isDark,
                   children: const [
                     ThemeToggleTile(),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // App Updates & OTA Section
+                _buildCardContainer(
+                  isDark: isDark,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.system_update_rounded,
+                          color: AppColors.primary),
+                      title: const Text('App Updates (OTA)'),
+                      subtitle: Text(
+                        updateState.isChecking
+                            ? 'Checking GitHub for updates...'
+                            : (updateState.updateInfo?.isUpdateAvailable == true
+                                ? 'New version v${updateState.updateInfo!.latestVersion} available!'
+                                : 'CoupleSync is up to date • GitHub OTA'),
+                      ),
+                      trailing: updateState.isChecking
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.sync_rounded),
+                      onTap: () async {
+                        await ref
+                            .read(updateNotifierProvider.notifier)
+                            .checkForUpdates(silent: false);
+
+                        final state = ref.read(updateNotifierProvider);
+                        if (context.mounted) {
+                          if (state.updateInfo != null &&
+                              state.updateInfo!.isUpdateAvailable) {
+                            UpdateDialog.show(context, state.updateInfo!);
+                          } else if (state.errorMessage != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(state.errorMessage!),
+                                backgroundColor: AppColors.priorityHigh,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'CoupleSync is on the latest version! 🚀'),
+                                backgroundColor: AppColors.statusDone,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    if (updateState.updateInfo?.isUpdateAvailable == true) ...[
+                      Divider(
+                        height: 1,
+                        indent: 56,
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightBorder,
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.rocket_launch_rounded,
+                            color: AppColors.secondary),
+                        title: Text(
+                          'Update to v${updateState.updateInfo!.latestVersion}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: const Text('Tap "Update Now" to install'),
+                        trailing: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                          ),
+                          onPressed: () => UpdateDialog.show(
+                              context, updateState.updateInfo!),
+                          child: const Text('Update Now'),
+                        ),
+                      ),
+                    ],
+                    Divider(
+                      height: 1,
+                      indent: 56,
+                      color:
+                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.science_outlined,
+                          color: Colors.amber),
+                      title: const Text('Demo Update Now Flow'),
+                      subtitle:
+                          const Text('Preview update dialog & install action'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        ref
+                            .read(updateNotifierProvider.notifier)
+                            .simulateUpdateAvailable();
+                        final info =
+                            ref.read(updateNotifierProvider).updateInfo;
+                        if (info != null && context.mounted) {
+                          UpdateDialog.show(context, info);
+                        }
+                      },
+                    ),
                   ],
                 ),
 

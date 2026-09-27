@@ -17,40 +17,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _nameController = TextEditingController();
 
-  bool _isSignUp = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _nameController.dispose();
     super.dispose();
+  }
+
+  void _quickFill(String email, String defaultPassword) {
+    setState(() {
+      _emailController.text = email;
+      _passwordController.text = defaultPassword;
+    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authNotifier = ref.read(authNotifierProvider.notifier);
-    bool success;
-
-    if (_isSignUp) {
-      success = await authNotifier.signUp(
-        _emailController.text,
-        _passwordController.text,
-        _nameController.text.isNotEmpty ? _nameController.text : 'You',
-      );
-    } else {
-      success = await authNotifier.signIn(
-        _emailController.text,
-        _passwordController.text,
-      );
-    }
+    final success = await authNotifier.signIn(
+      _emailController.text,
+      _passwordController.text,
+    );
 
     if (!success && mounted) {
-      final err = ref.read(authNotifierProvider).errorMessage ?? 'Authentication failed';
+      final err =
+          ref.read(authNotifierProvider).errorMessage ?? 'Authentication failed';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(err),
@@ -76,7 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // App Icon / Logo
+                  // Couple Heart Icon
                   Container(
                     width: 90,
                     height: 90,
@@ -85,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.35),
+                          color: AppColors.primary.withValues(alpha: 0.35),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -101,59 +96,67 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // App Title & Tagline
+                  // App Title & Subtitle
                   Text(
                     AppStrings.appName,
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       letterSpacing: -0.5,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.lightTextPrimary,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _isSignUp
-                        ? 'Create your account to start syncing'
-                        : AppStrings.loginSubtitle,
+                    'Private space for Altamas & Iqra ❤️',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.lightTextSecondary,
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 32),
 
-                  // Display Name Field (if Sign Up)
-                  if (_isSignUp) ...[
-                    AppTextField(
-                      controller: _nameController,
-                      label: 'Your Name',
-                      hint: 'e.g. Alex, Sam',
-                      prefixIcon: Icons.badge_outlined,
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Please enter your name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                  ],
+                  // Quick Account Selector (One-Tap Preset)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickUserCard(
+                          name: 'Altamas',
+                          email: 'altamas@sync.com',
+                          gender: 'male',
+                          color: AppColors.partnerAccent,
+                          icon: Icons.face_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: _buildQuickUserCard(
+                          name: 'Iqra',
+                          email: 'iqra@sync.com',
+                          gender: 'female',
+                          color: AppColors.primary,
+                          icon: Icons.face_3_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 26),
 
                   // Email Field
                   AppTextField(
                     controller: _emailController,
                     label: AppStrings.emailLabel,
-                    hint: AppStrings.emailHint,
+                    hint: 'altamas@sync.com / iqra@sync.com',
                     prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
                         return 'Please enter your email';
-                      }
-                      if (!val.contains('@') || !val.contains('.')) {
-                        return 'Please enter a valid email address';
                       }
                       return null;
                     },
@@ -191,35 +194,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: AppButton(
-                      text: _isSignUp ? 'Create Account' : AppStrings.signInButton,
-                      icon: _isSignUp ? Icons.person_add_rounded : Icons.login_rounded,
+                      text: AppStrings.signInButton,
+                      icon: Icons.login_rounded,
                       isLoading: authState.isLoading,
                       onPressed: _submit,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Switch between Sign In and Sign Up
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _isSignUp = !_isSignUp;
-                      });
-                    },
-                    child: Text(
-                      _isSignUp
-                          ? 'Already have an account? Sign In'
-                          : 'Don\'t have an account? Sign Up',
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickUserCard({
+    required String name,
+    required String email,
+    required String gender,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isSelected = _emailController.text == email;
+
+    return InkWell(
+      onTap: () => _quickFill(email, '123456'),
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.16) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? color : Theme.of(context).dividerColor,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isSelected ? color : null,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              email,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
         ),
       ),
     );

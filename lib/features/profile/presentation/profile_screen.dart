@@ -143,6 +143,15 @@ class ProfileScreen extends ConsumerWidget {
                           : () => _showLinkPartnerDialog(
                               context, ref, state.potentialPartners),
                     ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.lock_reset_rounded,
+                          color: AppColors.primary),
+                      title: const Text('Change Password'),
+                      subtitle: const Text('Update your private account password'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => _showChangePasswordDialog(context, ref),
+                    ),
                   ],
                 ),
 
@@ -317,6 +326,113 @@ class ProfileScreen extends ConsumerWidget {
                     )),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    bool obscure = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Change Password'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  labelText: 'New Password',
+                  hintText: 'At least 6 characters',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setDialogState(() => obscure = !obscure);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                obscureText: obscure,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  hintText: 'Re-enter new password',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final pass = passwordController.text.trim();
+                final confirm = confirmController.text.trim();
+
+                if (pass.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password must be at least 6 characters'),
+                      backgroundColor: AppColors.priorityHigh,
+                    ),
+                  );
+                  return;
+                }
+
+                if (pass != confirm) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Passwords do not match'),
+                      backgroundColor: AppColors.priorityHigh,
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(ctx);
+                final success = await ref
+                    .read(authNotifierProvider.notifier)
+                    .updatePassword(pass);
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success
+                          ? 'Password changed successfully! 🔒'
+                          : 'Failed to update password'),
+                      backgroundColor: success
+                          ? AppColors.statusDone
+                          : AppColors.priorityHigh,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Update'),
+            ),
+          ],
         ),
       ),
     );

@@ -139,3 +139,25 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.reminders;
   END IF;
 END $$;
+
+-- 9. Auto-confirm Altamas and Iqra emails & link partners
+UPDATE auth.users
+SET email_confirmed_at = NOW()
+WHERE email IN ('altamas@sync.com', 'iqra@sync.com') AND email_confirmed_at IS NULL;
+
+-- Ensure profiles exist for both
+INSERT INTO public.profiles (id, display_name)
+SELECT id, COALESCE(raw_user_meta_data->>'display_name', split_part(email, '@', 1))
+FROM auth.users
+WHERE email IN ('altamas@sync.com', 'iqra@sync.com')
+ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name;
+
+-- Mutually link Altamas and Iqra as partners
+UPDATE public.profiles
+SET partner_id = (SELECT id FROM auth.users WHERE email = 'iqra@sync.com' LIMIT 1)
+WHERE id = (SELECT id FROM auth.users WHERE email = 'altamas@sync.com' LIMIT 1);
+
+UPDATE public.profiles
+SET partner_id = (SELECT id FROM auth.users WHERE email = 'altamas@sync.com' LIMIT 1)
+WHERE id = (SELECT id FROM auth.users WHERE email = 'iqra@sync.com' LIMIT 1);
+

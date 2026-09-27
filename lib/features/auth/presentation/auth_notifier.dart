@@ -57,6 +57,22 @@ class AuthNotifier extends Notifier<AuthUIState> {
     }
   }
 
+  Future<bool> updatePassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      await repo.updatePassword(newPassword);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _formatError(e),
+      );
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true);
     try {

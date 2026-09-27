@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/supabase/supabase_client.dart';
+import '../../../shared/services/notification_service.dart';
 import '../data/task_model.dart';
 import '../data/task_repository.dart';
-import '../../../core/supabase/supabase_client.dart';
 
 enum TaskFilter { all, assignedToMe, createdByMe }
 
@@ -30,6 +31,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     _streamSubscription = repo.watchTasks().listen(
       (tasks) {
         state = AsyncData(tasks);
+        _syncWeeklyNotifications(tasks);
       },
       onError: (err, stack) {
         _fallbackFetch();
@@ -41,9 +43,41 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     });
 
     try {
-      return await repo.fetchTasks();
+      final tasks = await repo.fetchTasks();
+      _syncWeeklyNotifications(tasks);
+      return tasks;
     } catch (_) {
       return [];
+    }
+  }
+
+  void _syncWeeklyNotifications(List<TaskModel> tasks) {
+    final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
+    for (final task in tasks) {
+      final notifId = task.id.hashCode ^ 0x7777;
+      if (task.isDone) {
+        NotificationService.cancelReminder(notifId);
+      } else if (task.isWeeklyReminder &&
+          task.weeklyReminderDay != null &&
+          (task.assignedTo == currentUserId || task.createdBy == currentUserId)) {
+        int hour = 10;
+        int minute = 0;
+        if (task.weeklyReminderTime != null &&
+            task.weeklyReminderTime!.contains(':')) {
+          final parts = task.weeklyReminderTime!.split(':');
+          hour = int.tryParse(parts[0]) ?? 10;
+          minute = int.tryParse(parts[1]) ?? 0;
+        }
+
+        NotificationService.scheduleWeeklyReminder(
+          id: notifId,
+          title: 'Weekly Task: ${task.title}',
+          body: task.description ?? 'Time for your weekly couple task!',
+          weekday: task.weeklyReminderDay!,
+          hour: hour,
+          minute: minute,
+        );
+      }
     }
   }
 
@@ -51,6 +85,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     try {
       final tasks = await ref.read(taskRepositoryProvider).fetchTasks();
       state = AsyncData(tasks);
+      _syncWeeklyNotifications(tasks);
     } catch (_) {}
   }
 
@@ -60,6 +95,9 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     required String assignedTo,
     String priority = 'medium',
     DateTime? dueDate,
+    bool isWeeklyReminder = false,
+    int? weeklyReminderDay,
+    String? weeklyReminderTime,
   }) async {
     final currentUser = SupabaseConfig.client.auth.currentUser;
     if (currentUser == null) return;
@@ -67,26 +105,93 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     final newTask = TaskModel(
       id: const Uuid().v4(),
       title: title.trim(),
-      description: description?.trim().isEmpty == true ? null : description?.trim(),
+      description:
+          description?.trim().isEmpty == true ? null : description?.trim(),
       createdBy: currentUser.id,
       assignedTo: assignedTo,
       priority: priority,
       dueDate: dueDate,
+      isWeeklyReminder: isWeeklyReminder,
+      weeklyReminderDay: weeklyReminderDay,
+      weeklyReminderTime: weeklyReminderTime,
       status: 'pending',
       createdAt: DateTime.now(),
     );
 
     await ref.read(taskRepositoryProvider).createTask(newTask);
+
+    if (isWeeklyReminder && weeklyReminderDay != null) {
+      int hour = 10;
+      int minute = 0;
+      if (weeklyReminderTime != null && weeklyReminderTime.contains(':')) {
+        final parts = weeklyReminderTime.split(':');
+        hour = int.tryParse(parts[0]) ?? 10;
+        minute = int.tryParse(parts[1]) ?? 0;
+      }
+      await NotificationService.scheduleWeeklyReminder(
+        id: newTask.id.hashCode ^ 0x7777,
+        title: 'Weekly Task: ${newTask.title}',
+        body: newTask.description ?? 'Time for your weekly couple task!',
+        weekday: weeklyReminderDay,
+        hour: hour,
+        minute: minute,
+      );
+    }
+
     await _fallbackFetch();
   }
 
   Future<void> updateTaskStatus(String taskId, String status) async {
     await ref.read(taskRepositoryProvider).updateTaskStatus(taskId, status);
+    if (status == 'done') {
+      await NotificationService.cancelReminder(taskId.hashCode ^ 0x7777);
+    }
+    await _fallbackFetch();
+  }
+
+  Future<void> updateWeeklyReminder({
+    required String taskId,
+    required bool isWeekly,
+    int? day,
+    String? time,
+  }) async {
+    final tasks = state.value ?? [];
+    final existing = tasks.firstWhere((t) => t.id == taskId);
+    final updated = existing.copyWith(
+      isWeeklyReminder: isWeekly,
+      weeklyReminderDay: day,
+      weeklyReminderTime: time,
+    );
+
+    await ref.read(taskRepositoryProvider).updateTask(updated);
+
+    final notifId = taskId.hashCode ^ 0x7777;
+    if (!isWeekly || day == null) {
+      await NotificationService.cancelReminder(notifId);
+    } else {
+      int hour = 10;
+      int minute = 0;
+      if (time != null && time.contains(':')) {
+        final parts = time.split(':');
+        hour = int.tryParse(parts[0]) ?? 10;
+        minute = int.tryParse(parts[1]) ?? 0;
+      }
+      await NotificationService.scheduleWeeklyReminder(
+        id: notifId,
+        title: 'Weekly Task: ${updated.title}',
+        body: updated.description ?? 'Time for your weekly couple task!',
+        weekday: day,
+        hour: hour,
+        minute: minute,
+      );
+    }
+
     await _fallbackFetch();
   }
 
   Future<void> deleteTask(String taskId) async {
     await ref.read(taskRepositoryProvider).deleteTask(taskId);
+    await NotificationService.cancelReminder(taskId.hashCode ^ 0x7777);
     await _fallbackFetch();
   }
 }

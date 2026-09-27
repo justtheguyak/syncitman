@@ -76,6 +76,26 @@ class NotificationService {
     }
   }
 
+  static tz.TZDateTime _nextInstanceOfDayAndTime(
+      int weekday, int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    while (scheduledDate.weekday != weekday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
   static Future<void> scheduleReminder({
     required int id,
     required String title,
@@ -112,6 +132,49 @@ class NotificationService {
       debugPrint('Scheduled notification $id at $scheduledAt');
     } catch (e) {
       debugPrint('Failed to schedule notification: $e');
+    }
+  }
+
+  static Future<void> scheduleWeeklyReminder({
+    required int id,
+    required String title,
+    required String? body,
+    required int weekday, // 1 = Monday ... 7 = Sunday
+    required int hour,
+    required int minute,
+  }) async {
+    try {
+      if (!_initialized) await init();
+      final scheduledDate = _nextInstanceOfDayAndTime(weekday, hour, minute);
+
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body ?? 'Weekly Task Reminder',
+        scheduledDate: scheduledDate,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'couplesync_weekly',
+            'Weekly Reminders',
+            channelDescription: 'Weekly repeating notifications for tasks',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+      debugPrint(
+          'Scheduled weekly notification $id on weekday $weekday at $hour:$minute');
+    } catch (e) {
+      debugPrint('Failed to schedule weekly notification: $e');
     }
   }
 

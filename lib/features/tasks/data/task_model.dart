@@ -7,6 +7,9 @@ class TaskModel {
   final String status; // 'pending' | 'in_progress' | 'done'
   final String priority; // 'low' | 'medium' | 'high'
   final DateTime? dueDate;
+  final bool isWeeklyReminder;
+  final int? weeklyReminderDay; // 1 = Monday ... 7 = Sunday
+  final String? weeklyReminderTime; // e.g. "10:00"
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -19,6 +22,9 @@ class TaskModel {
     this.status = 'pending',
     this.priority = 'medium',
     this.dueDate,
+    this.isWeeklyReminder = false,
+    this.weeklyReminderDay,
+    this.weeklyReminderTime,
     required this.createdAt,
     this.updatedAt,
   });
@@ -30,6 +36,29 @@ class TaskModel {
   bool get isOverdue {
     if (dueDate == null || isDone) return false;
     return dueDate!.isBefore(DateTime.now());
+  }
+
+  String? get weeklyReminderDayName {
+    if (weeklyReminderDay == null) return null;
+    const days = {
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    return days[weeklyReminderDay];
+  }
+
+  String? get weeklyReminderFormatted {
+    if (!isWeeklyReminder || weeklyReminderDay == null) return null;
+    final day = weeklyReminderDayName ?? 'Day';
+    if (weeklyReminderTime != null && weeklyReminderTime!.isNotEmpty) {
+      return 'Every $day at $weeklyReminderTime';
+    }
+    return 'Every $day';
   }
 
   factory TaskModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +73,9 @@ class TaskModel {
       dueDate: json['due_date'] != null
           ? DateTime.parse(json['due_date'] as String).toLocal()
           : null,
+      isWeeklyReminder: (json['is_weekly_reminder'] as bool?) ?? false,
+      weeklyReminderDay: json['weekly_reminder_day'] as int?,
+      weeklyReminderTime: json['weekly_reminder_time'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String).toLocal()
           : DateTime.now(),
@@ -63,6 +95,9 @@ class TaskModel {
       'status': status,
       'priority': priority,
       if (dueDate != null) 'due_date': dueDate!.toUtc().toIso8601String(),
+      'is_weekly_reminder': isWeeklyReminder,
+      'weekly_reminder_day': weeklyReminderDay,
+      'weekly_reminder_time': weeklyReminderTime,
       'created_at': createdAt.toUtc().toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toUtc().toIso8601String(),
     };
@@ -77,6 +112,9 @@ class TaskModel {
     String? status,
     String? priority,
     DateTime? dueDate,
+    bool? isWeeklyReminder,
+    int? weeklyReminderDay,
+    String? weeklyReminderTime,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -89,6 +127,9 @@ class TaskModel {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       dueDate: dueDate ?? this.dueDate,
+      isWeeklyReminder: isWeeklyReminder ?? this.isWeeklyReminder,
+      weeklyReminderDay: weeklyReminderDay ?? this.weeklyReminderDay,
+      weeklyReminderTime: weeklyReminderTime ?? this.weeklyReminderTime,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

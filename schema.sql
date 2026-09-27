@@ -42,9 +42,17 @@ CREATE TABLE IF NOT EXISTS public.tasks (
   priority TEXT NOT NULL DEFAULT 'medium'
     CHECK (priority IN ('low', 'medium', 'high')),
   due_date TIMESTAMPTZ,
+  is_weekly_reminder BOOLEAN DEFAULT false,
+  weekly_reminder_day INTEGER CHECK (weekly_reminder_day BETWEEN 1 AND 7),
+  weekly_reminder_time TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration for existing tasks tables
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_weekly_reminder BOOLEAN DEFAULT false;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS weekly_reminder_day INTEGER CHECK (weekly_reminder_day BETWEEN 1 AND 7);
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS weekly_reminder_time TEXT;
 
 -- 3. Reminders Table
 CREATE TABLE IF NOT EXISTS public.reminders (

@@ -26,6 +26,11 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
   DateTime? _dueDate;
   bool _isSaving = false;
 
+  // Weekly reminder state
+  bool _isWeeklyReminder = false;
+  int _weeklyReminderDay = DateTime.sunday; // Default to Sunday (7)
+  TimeOfDay _weeklyReminderTime = const TimeOfDay(hour: 10, minute: 0);
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -64,6 +69,16 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
     }
   }
 
+  Future<void> _pickWeeklyTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _weeklyReminderTime,
+    );
+    if (picked != null && mounted) {
+      setState(() => _weeklyReminderTime = picked);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -76,7 +91,11 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
             ? profileState!.potentialPartners.first.id
             : null);
 
-    final assignedTo = _assignToMe ? currentUserId : (partnerId ?? currentUserId);
+    final assignedTo =
+        _assignToMe ? currentUserId : (partnerId ?? currentUserId);
+
+    final timeString =
+        '${_weeklyReminderTime.hour.toString().padLeft(2, '0')}:${_weeklyReminderTime.minute.toString().padLeft(2, '0')}';
 
     setState(() => _isSaving = true);
     try {
@@ -86,6 +105,9 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
             assignedTo: assignedTo,
             priority: _priority,
             dueDate: _dueDate,
+            isWeeklyReminder: _isWeeklyReminder,
+            weeklyReminderDay: _isWeeklyReminder ? _weeklyReminderDay : null,
+            weeklyReminderTime: _isWeeklyReminder ? timeString : null,
           );
 
       if (mounted) {
@@ -119,6 +141,8 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
             ? profileState!.potentialPartners.first.displayName
             : 'Partner');
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.createTask),
@@ -136,8 +160,9 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                   label: AppStrings.taskTitle,
                   hint: 'e.g. Pick up groceries, Book dinner reservation',
                   prefixIcon: Icons.task_alt_rounded,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Please enter a task title' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Please enter a task title'
+                      : null,
                 ),
                 const SizedBox(height: 18),
 
@@ -224,7 +249,8 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                   onTap: _pickDateTime,
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: Theme.of(context).dividerColor,
@@ -259,6 +285,127 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // Weekly Repeating Reminder Option
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkCard
+                        : AppColors.secondary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _isWeeklyReminder
+                          ? AppColors.secondary
+                          : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      width: _isWeeklyReminder ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.repeat_rounded,
+                            color: AppColors.secondary,
+                            size: 22,
+                          ),
+                        ),
+                        title: const Text(
+                          'Weekly Reminder',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: const Text(
+                          'Remind every week on a chosen day (e.g. Sunday)',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        value: _isWeeklyReminder,
+                        activeThumbColor: AppColors.secondary,
+                        onChanged: (val) =>
+                            setState(() => _isWeeklyReminder = val),
+                      ),
+                      if (_isWeeklyReminder) ...[
+                        const Divider(height: 24),
+                        const Text(
+                          'Repeat Every:',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 10),
+                        // Day of Week Selector
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildWeekdayChip('Mon', DateTime.monday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Tue', DateTime.tuesday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Wed', DateTime.wednesday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Thu', DateTime.thursday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Fri', DateTime.friday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Sat', DateTime.saturday),
+                              const SizedBox(width: 6),
+                              _buildWeekdayChip('Sun', DateTime.sunday),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Reminder Time Picker
+                        InkWell(
+                          onTap: _pickWeeklyTime,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white10
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: Theme.of(context).dividerColor),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time_rounded,
+                                    size: 18, color: AppColors.secondary),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Reminder Time:',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  _weeklyReminderTime.format(context),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.secondary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.edit_rounded, size: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 36),
 
                 // Submit button
@@ -279,6 +426,34 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
     );
   }
 
+  Widget _buildWeekdayChip(String label, int day) {
+    final isSelected = _weeklyReminderDay == day;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.secondary,
+      backgroundColor: Colors.transparent,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : null,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+        fontSize: 12,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: isSelected
+              ? AppColors.secondary
+              : Theme.of(context).dividerColor,
+        ),
+      ),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _weeklyReminderDay = day);
+        }
+      },
+    );
+  }
+
   Widget _buildChoiceChip({
     required String label,
     required IconData icon,
@@ -293,7 +468,7 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.12)
+              ? AppColors.primary.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -336,7 +511,7 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Theme.of(context).dividerColor,

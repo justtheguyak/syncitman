@@ -135,8 +135,8 @@ class TaskCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: isAssignedToMe
-                          ? AppColors.primary.withOpacity(0.12)
-                          : AppColors.partnerAccent.withOpacity(0.12),
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : AppColors.partnerAccent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -165,6 +165,34 @@ class TaskCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  // Weekly reminder chip
+                  if (task.isWeeklyReminder && task.weeklyReminderDay != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.repeat_rounded,
+                              size: 12, color: AppColors.secondary),
+                          const SizedBox(width: 3),
+                          Text(
+                            task.weeklyReminderFormatted ?? 'Weekly',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const Spacer(),
 

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/supabase/supabase_client.dart';
 import 'update_model.dart';
 
 class UpdateService {
@@ -12,13 +13,15 @@ class UpdateService {
   static const String apiLatestReleaseUrl =
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
 
-  /// Fetch currently installed app version (e.g. "1.0.0")
+  /// Supabase Storage bucket name for APK releases (fallback)
+  static const String storageBucket = 'releases';
+
+  /// Fetch currently installed app version (e.g. "1.0.1")
   static Future<String> getCurrentAppVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
       return info.version;
     } catch (_) {
-      // Fallback if app hasn't been cold-restarted after adding package_info_plus
       return '1.0.0';
     }
   }
@@ -33,45 +36,70 @@ class UpdateService {
     }
   }
 
-  /// Checks GitHub repository for the latest release
+  /// Checks GitHub first, then falls back to Supabase `app_updates` table
   static Future<AppUpdateInfo?> checkForUpdate() async {
-    try {
-      final currentVersion = await getCurrentAppVersion();
-      final uri = Uri.parse(apiLatestReleaseUrl);
+    final currentVersion = await getCurrentAppVersion();
 
+    // 1. Check GitHub Release
+    try {
+      final uri = Uri.parse(apiLatestReleaseUrl);
       final response = await http.get(
         uri,
         headers: {
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'CoupleSync-App',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 7));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
-        return AppUpdateInfo.fromGitHubRelease(
+        final ghInfo = AppUpdateInfo.fromGitHubRelease(
           json: data,
           currentVersion: currentVersion,
         );
-      } else if (response.statusCode == 404) {
-        // No releases published yet on the repository
-        return AppUpdateInfo(
-          latestVersion: currentVersion,
-          currentVersion: currentVersion,
-          isUpdateAvailable: false,
-          releaseName: 'CoupleSync Up to Date',
-          releaseNotes: 'You are on the latest version of CoupleSync.',
-          htmlUrl: 'https://github.com/$githubOwner/$githubRepo/releases',
-        );
-      } else {
-        debugPrint(
-            'GitHub API returned non-200 status: ${response.statusCode}');
-        return null;
+        if (ghInfo.apkDownloadUrl != null && ghInfo.apkDownloadUrl!.isNotEmpty) {
+          return ghInfo;
+        }
       }
     } catch (e) {
-      debugPrint('Error checking for update: $e');
-      return null;
+      debugPrint('GitHub update check note: $e');
     }
+
+    // 2. Fallback to Supabase app_updates table
+    try {
+      final client = SupabaseConfig.client;
+      final response = await client
+          .from('app_updates')
+          .select()
+          .order('version_code', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null) {
+        return AppUpdateInfo.fromSupabaseRow(
+          row: response,
+          currentVersion: currentVersion,
+        );
+      }
+    } catch (e) {
+      debugPrint('Supabase update check note: $e');
+    }
+
+    return AppUpdateInfo(
+      latestVersion: currentVersion,
+      currentVersion: currentVersion,
+      isUpdateAvailable: false,
+      releaseName: 'CoupleSync Up to Date',
+      releaseNotes: 'You are on the latest version of CoupleSync.',
+      htmlUrl: 'https://github.com/$githubOwner/$githubRepo/releases',
+    );
+  }
+
+  /// Gets a public download URL for an APK stored in Supabase Storage
+  static String getApkPublicUrl(String fileName) {
+    return SupabaseConfig.client.storage
+        .from(storageBucket)
+        .getPublicUrl(fileName);
   }
 
   /// Initiates Over-The-Air APK download and triggers Android package installer
@@ -85,7 +113,7 @@ class UpdateService {
     );
   }
 
-  /// Launches external GitHub release link in browser as a fallback
+  /// Launches external URL in browser as a fallback
   static Future<bool> openReleaseInBrowser(String url) async {
     try {
       final uri = Uri.parse(url);

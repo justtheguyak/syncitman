@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/theme_toggle.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
+import 'avatar_crop_screen.dart';
 import 'profile_notifier.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -302,7 +304,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'CoupleSync v1.0.1 • Made with love',
+                  'CoupleSync v1.0.2 • Made with love',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -816,24 +818,31 @@ class ProfileScreen extends ConsumerWidget {
                   try {
                     final picked = await picker.pickImage(
                       source: ImageSource.gallery,
-                      maxWidth: 400,
-                      maxHeight: 400,
-                      imageQuality: 75,
+                      maxWidth: 1600,
+                      maxHeight: 1600,
+                      imageQuality: 90,
                     );
-                    if (picked != null) {
-                      final bytes = await picked.readAsBytes();
-                      final base64String =
-                          'data:image/jpeg;base64,${base64Encode(bytes)}';
-                      await ref
-                          .read(profileNotifierProvider.notifier)
-                          .updateAvatar(targetUserId, base64String);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Profile picture set for $name! 📸'),
-                            backgroundColor: AppColors.statusDone,
+                    if (picked != null && context.mounted) {
+                      final croppedBase64 = await Navigator.of(context).push<String>(
+                        MaterialPageRoute(
+                          builder: (_) => AvatarCropScreen(
+                            imageFile: File(picked.path),
+                            title: 'Adjust Profile Picture',
                           ),
-                        );
+                        ),
+                      );
+                      if (croppedBase64 != null && context.mounted) {
+                        await ref
+                            .read(profileNotifierProvider.notifier)
+                            .updateAvatar(targetUserId, croppedBase64);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Profile picture set for $name! 📸'),
+                              backgroundColor: AppColors.statusDone,
+                            ),
+                          );
+                        }
                       }
                     }
                   } on PlatformException catch (e) {
@@ -882,25 +891,32 @@ class ProfileScreen extends ConsumerWidget {
                   try {
                     final picked = await picker.pickImage(
                       source: ImageSource.camera,
-                      maxWidth: 400,
-                      maxHeight: 400,
-                      imageQuality: 75,
+                      maxWidth: 1600,
+                      maxHeight: 1600,
+                      imageQuality: 90,
                     );
-                    if (picked != null) {
-                      final bytes = await picked.readAsBytes();
-                      final base64String =
-                          'data:image/jpeg;base64,${base64Encode(bytes)}';
-                      await ref
-                          .read(profileNotifierProvider.notifier)
-                          .updateAvatar(targetUserId, base64String);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content:
-                                Text('Profile photo updated for $name! 📸'),
-                            backgroundColor: AppColors.statusDone,
+                    if (picked != null && context.mounted) {
+                      final croppedBase64 = await Navigator.of(context).push<String>(
+                        MaterialPageRoute(
+                          builder: (_) => AvatarCropScreen(
+                            imageFile: File(picked.path),
+                            title: 'Adjust Profile Picture',
                           ),
-                        );
+                        ),
+                      );
+                      if (croppedBase64 != null && context.mounted) {
+                        await ref
+                            .read(profileNotifierProvider.notifier)
+                            .updateAvatar(targetUserId, croppedBase64);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  Text('Profile photo updated for $name! 📸'),
+                              backgroundColor: AppColors.statusDone,
+                            ),
+                          );
+                        }
                       }
                     }
                   } on PlatformException catch (e) {

@@ -190,3 +190,32 @@ UPDATE public.profiles
 SET partner_id = (SELECT id FROM auth.users WHERE email = 'altamas@sync.com' LIMIT 1)
 WHERE id = (SELECT id FROM auth.users WHERE email = 'iqra@sync.com' LIMIT 1);
 
+-- 10. App Updates Table (OTA via Supabase)
+CREATE TABLE IF NOT EXISTS public.app_updates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  version TEXT NOT NULL UNIQUE,        -- e.g. '1.0.1'
+  version_code INTEGER NOT NULL,       -- e.g. 2
+  release_name TEXT,                   -- e.g. 'CoupleSync v1.0.1'
+  release_notes TEXT,                  -- markdown release notes
+  apk_url TEXT NOT NULL,               -- full URL to download APK
+  is_mandatory BOOLEAN DEFAULT true,
+  published_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.app_updates ENABLE ROW LEVEL SECURITY;
+
+-- Anyone authenticated can read updates
+DROP POLICY IF EXISTS "app_updates_read" ON public.app_updates;
+CREATE POLICY "app_updates_read" ON public.app_updates
+  FOR SELECT USING (true);
+
+-- Only service_role can insert/update/delete (via Supabase dashboard or CI)
+-- No insert/update/delete policies for authenticated users
+
+-- 11. Create Supabase Storage bucket for APK releases
+-- NOTE: Run this in the Supabase Dashboard > Storage > Create Bucket:
+--   Bucket name: releases
+--   Public: true
+-- Then upload your APK files there as: releases/CoupleSync-v1.0.1.apk
+

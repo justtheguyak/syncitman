@@ -93,11 +93,15 @@ class UpdateNotifier extends Notifier<UpdateState> {
     final info = state.updateInfo;
     if (info == null) return;
 
-    // Direct APK download link from GitHub release
-    final String apkUrl = (info.apkDownloadUrl != null &&
-            info.apkDownloadUrl!.isNotEmpty)
-        ? info.apkDownloadUrl!
-        : 'https://github.com/${UpdateService.githubOwner}/${UpdateService.githubRepo}/releases/download/v${info.latestVersion}/app-release.apk';
+    // Direct APK download link from Supabase Storage
+    final String? apkUrl = info.apkDownloadUrl;
+    if (apkUrl == null || apkUrl.isEmpty) {
+      state = state.copyWith(
+        otaStatus: null,
+        errorMessage: 'No download URL available for this update.',
+      );
+      return;
+    }
 
     // Cancel any previous subscription
     await _otaSubscription?.cancel();

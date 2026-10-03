@@ -371,10 +371,10 @@ class _ReminderDetailScreenState extends ConsumerState<ReminderDetailScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not show notification. Please check system notification permissions! ⚠️'),
+          SnackBar(
+            content: Text('Could not show notification: ${NotificationService.lastError ?? "Check system permissions"} ⚠️'),
             backgroundColor: AppColors.priorityHigh,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

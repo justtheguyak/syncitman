@@ -244,18 +244,38 @@ class ProfileScreen extends ConsumerWidget {
                       leading: const Icon(Icons.notifications_active_rounded,
                           color: AppColors.primary),
                       title: const Text('Notification Permissions'),
-                      subtitle: const Text('Ensure permissions are granted for alerts'),
-                      trailing: const Icon(Icons.security_update_good_rounded),
+                      subtitle: const Text('Check or enable device alerts in settings'),
+                      trailing: const Icon(Icons.settings_outlined),
                       onTap: () async {
+                        final alreadyEnabled =
+                            await NotificationService.arePermissionsGranted();
+                        if (alreadyEnabled) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Notifications are already fully enabled! 🔔'),
+                                backgroundColor: AppColors.statusDone,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
                         final granted =
                             await NotificationService.requestPermissions();
+                        if (!granted) {
+                          await NotificationService.openNotificationSettings();
+                        }
+
+                        final nowEnabled =
+                            await NotificationService.arePermissionsGranted();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(granted
-                                  ? 'Notifications are enabled! 🔔'
-                                  : 'Notification permission not granted. Please allow in app settings.'),
-                              backgroundColor: granted
+                              content: Text(nowEnabled
+                                  ? 'Notifications enabled! 🔔'
+                                  : 'Please ensure notifications are turned on in App Settings.'),
+                              backgroundColor: nowEnabled
                                   ? AppColors.statusDone
                                   : AppColors.priorityHigh,
                             ),
@@ -278,10 +298,11 @@ class ProfileScreen extends ConsumerWidget {
                             SnackBar(
                               content: Text(success
                                   ? 'Test alert sent! Check your notification shade. 💕'
-                                  : 'Failed to show notification. Check permissions! ⚠️'),
+                                  : 'Failed to show: ${NotificationService.lastError ?? "Check permissions"} ⚠️'),
                               backgroundColor: success
                                   ? AppColors.statusDone
                                   : AppColors.priorityHigh,
+                              duration: const Duration(seconds: 4),
                             ),
                           );
                         }
@@ -303,10 +324,11 @@ class ProfileScreen extends ConsumerWidget {
                             SnackBar(
                               content: Text(success
                                   ? 'Notification scheduled! Wait 5 seconds... ⏱️'
-                                  : 'Failed to schedule reminder. Check alarm permissions! ⚠️'),
+                                  : 'Failed: ${NotificationService.lastError ?? "Check alarm permissions"} ⚠️'),
                               backgroundColor: success
                                   ? AppColors.statusDone
                                   : AppColors.priorityHigh,
+                              duration: const Duration(seconds: 4),
                             ),
                           );
                         }
@@ -386,7 +408,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'CoupleSync v1.0.3 • Made with love',
+                  'CoupleSync v1.0.4 • Made with love',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark

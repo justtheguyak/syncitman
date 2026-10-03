@@ -15,8 +15,11 @@ class NotificationService {
   static const String channelWeekly = 'couplesync_weekly';
   static const String channelTest = 'couplesync_test_channel';
 
-  /// Default notification icon (custom monochrome vector drawable)
-  static const String notificationIcon = '@drawable/ic_notification';
+  /// Default notification icon in res/drawable/ (must not have @drawable/ prefix)
+  static const String notificationIcon = 'ic_notification';
+
+  /// Stores last error message for UI diagnostics
+  static String? lastError;
 
   /// Ensures IDs fit within positive 31-bit integer for Android Java compatibility
   static int safeId(int id) {
@@ -29,6 +32,7 @@ class NotificationService {
     if (_initialized) return;
 
     try {
+      lastError = null;
       // 1. Timezone Database Setup
       tz_data.initializeTimeZones();
       _calibrateLocalTimezone();
@@ -65,9 +69,10 @@ class NotificationService {
       }
 
       _initialized = true;
-      debugPrint('NotificationService initialized successfully');
-    } catch (e) {
-      debugPrint('NotificationService init error: $e');
+      debugPrint('NotificationService initialized successfully with icon $notificationIcon');
+    } catch (e, stack) {
+      lastError = 'Init error: $e';
+      debugPrint('NotificationService init error: $e\n$stack');
     }
   }
 
@@ -225,6 +230,19 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('Error requesting exact alarm permission: $e');
+    }
+  }
+
+  /// Opens the app notification settings directly in Android system settings
+  static Future<void> openNotificationSettings() async {
+    try {
+      if (!kIsWeb && Platform.isAndroid) {
+        final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        await androidImpl?.openAppNotificationSettings();
+      }
+    } catch (e) {
+      debugPrint('Error opening notification settings: $e');
     }
   }
 
@@ -386,6 +404,7 @@ class NotificationService {
     String channelName = 'Shared Reminders & Partner Alerts',
   }) async {
     try {
+      lastError = null;
       if (!_initialized) await init();
 
       final sId = safeId(id);
@@ -419,8 +438,9 @@ class NotificationService {
       );
       debugPrint('Immediate notification $sId shown successfully');
       return true;
-    } catch (e) {
-      debugPrint('Failed to show notification: $e');
+    } catch (e, stack) {
+      lastError = e.toString();
+      debugPrint('Failed to show notification: $e\n$stack');
       return false;
     }
   }

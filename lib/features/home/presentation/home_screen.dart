@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../shared/services/notification_service.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../reminders/presentation/reminders_screen.dart';
 import '../../tasks/presentation/tasks_notifier.dart';
@@ -15,6 +16,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.requestPermissions();
+    });
+  }
 
   final List<Widget> _screens = const [
     TasksScreen(),

@@ -51,10 +51,12 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
     }
   }
 
+  int _taskNotifId(String id) => (id.hashCode ^ 0x7777).abs() & 0x7FFFFFFF;
+
   void _syncWeeklyNotifications(List<TaskModel> tasks) {
     final currentUserId = SupabaseConfig.client.auth.currentUser?.id;
     for (final task in tasks) {
-      final notifId = task.id.hashCode ^ 0x7777;
+      final notifId = _taskNotifId(task.id);
       if (task.isDone) {
         NotificationService.cancelReminder(notifId);
       } else if (task.isWeeklyReminder &&
@@ -129,7 +131,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
         minute = int.tryParse(parts[1]) ?? 0;
       }
       await NotificationService.scheduleWeeklyReminder(
-        id: newTask.id.hashCode ^ 0x7777,
+        id: _taskNotifId(newTask.id),
         title: 'Weekly Task: ${newTask.title}',
         body: newTask.description ?? 'Time for your weekly couple task!',
         weekday: weeklyReminderDay,
@@ -144,7 +146,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
   Future<void> updateTaskStatus(String taskId, String status) async {
     await ref.read(taskRepositoryProvider).updateTaskStatus(taskId, status);
     if (status == 'done') {
-      await NotificationService.cancelReminder(taskId.hashCode ^ 0x7777);
+      await NotificationService.cancelReminder(_taskNotifId(taskId));
     }
     await _fallbackFetch();
   }
@@ -165,7 +167,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
 
     await ref.read(taskRepositoryProvider).updateTask(updated);
 
-    final notifId = taskId.hashCode ^ 0x7777;
+    final notifId = _taskNotifId(taskId);
     if (!isWeekly || day == null) {
       await NotificationService.cancelReminder(notifId);
     } else {
@@ -191,7 +193,7 @@ class TasksNotifier extends AsyncNotifier<List<TaskModel>> {
 
   Future<void> deleteTask(String taskId) async {
     await ref.read(taskRepositoryProvider).deleteTask(taskId);
-    await NotificationService.cancelReminder(taskId.hashCode ^ 0x7777);
+    await NotificationService.cancelReminder(_taskNotifId(taskId));
     await _fallbackFetch();
   }
 }

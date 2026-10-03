@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/theme_toggle.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
+import '../../../shared/services/notification_service.dart';
 import 'avatar_crop_screen.dart';
 import 'profile_notifier.dart';
 
@@ -235,6 +236,87 @@ class ProfileScreen extends ConsumerWidget {
 
                 const SizedBox(height: 16),
 
+                // Notifications & Alerts Section
+                _buildCardContainer(
+                  isDark: isDark,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.notifications_active_rounded,
+                          color: AppColors.primary),
+                      title: const Text('Notification Permissions'),
+                      subtitle: const Text('Ensure permissions are granted for alerts'),
+                      trailing: const Icon(Icons.security_update_good_rounded),
+                      onTap: () async {
+                        final granted =
+                            await NotificationService.requestPermissions();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(granted
+                                  ? 'Notifications are enabled! 🔔'
+                                  : 'Notification permission not granted. Please allow in app settings.'),
+                              backgroundColor: granted
+                                  ? AppColors.statusDone
+                                  : AppColors.priorityHigh,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.send_rounded,
+                          color: AppColors.secondary),
+                      title: const Text('Send Test Notification'),
+                      subtitle: const Text('Test immediate status bar alert'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () async {
+                        final success =
+                            await NotificationService.showImmediateNotification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success
+                                  ? 'Test alert sent! Check your notification shade. 💕'
+                                  : 'Failed to show notification. Check permissions! ⚠️'),
+                              backgroundColor: success
+                                  ? AppColors.statusDone
+                                  : AppColors.priorityHigh,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.timer_outlined,
+                          color: AppColors.primaryDark),
+                      title: const Text('Test Scheduled Reminder (5s)'),
+                      subtitle:
+                          const Text('Test background timer & alarm notification'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () async {
+                        final success = await NotificationService
+                            .scheduleTestNotification(delaySeconds: 5);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success
+                                  ? 'Notification scheduled! Wait 5 seconds... ⏱️'
+                                  : 'Failed to schedule reminder. Check alarm permissions! ⚠️'),
+                              backgroundColor: success
+                                  ? AppColors.statusDone
+                                  : AppColors.priorityHigh,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
                 // App Updates & OTA Section
                 _buildCardContainer(
                   isDark: isDark,
@@ -304,7 +386,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'CoupleSync v1.0.2 • Made with love',
+                  'CoupleSync v1.0.3 • Made with love',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark

@@ -353,19 +353,31 @@ class _ReminderDetailScreenState extends ConsumerState<ReminderDetailScreen> {
   }
 
   Future<void> _testNotification() async {
-    await NotificationService.showNotification(
+    final success = await NotificationService.showNotification(
       id: 777777,
       title: '🔔 ${_reminder.title}',
       body: _reminder.note ?? 'CoupleSync Reminder Alert 💕',
+      channelId: NotificationService.channelTest,
+      channelName: 'CoupleSync Test Alerts',
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Test notification sent to your phone! 🔔'),
-          backgroundColor: AppColors.statusDone,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test notification sent to your phone! 🔔'),
+            backgroundColor: AppColors.statusDone,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not show notification. Please check system notification permissions! ⚠️'),
+            backgroundColor: AppColors.priorityHigh,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 

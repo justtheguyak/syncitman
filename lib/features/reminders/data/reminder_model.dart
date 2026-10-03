@@ -21,7 +21,7 @@ class ReminderModel {
 
   bool get isPast => remindAt.isBefore(DateTime.now()) && !isCompleted;
 
-  int get notificationId => id.hashCode;
+  int get notificationId => id.hashCode.abs() & 0x7FFFFFFF;
 
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
     return ReminderModel(

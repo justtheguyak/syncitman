@@ -94,7 +94,7 @@ class RemindersNotifier extends AsyncNotifier<List<ReminderModel>> {
           DateFormat('EEE, MMM d • h:mm a').format(reminder.remindAt);
 
       await NotificationService.showNotification(
-        id: reminder.notificationId ^ 0x4321,
+        id: (reminder.notificationId ^ 0x4321).abs() & 0x7FFFFFFF,
         title: '💕 New Shared Reminder from $partnerName',
         body:
             '${reminder.title} ($timeFormatted)${reminder.note != null && reminder.note!.isNotEmpty ? '\n"${reminder.note}"' : ''}',
@@ -193,14 +193,14 @@ class RemindersNotifier extends AsyncNotifier<List<ReminderModel>> {
         .markComplete(reminderId, isCompleted);
 
     if (isCompleted) {
-      await NotificationService.cancelReminder(reminderId.hashCode);
+      await NotificationService.cancelReminder(reminderId.hashCode.abs() & 0x7FFFFFFF);
     }
     await _fallbackFetch();
   }
 
   Future<void> deleteReminder(String reminderId) async {
     await ref.read(reminderRepositoryProvider).deleteReminder(reminderId);
-    await NotificationService.cancelReminder(reminderId.hashCode);
+    await NotificationService.cancelReminder(reminderId.hashCode.abs() & 0x7FFFFFFF);
     await _fallbackFetch();
   }
 }

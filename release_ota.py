@@ -113,6 +113,40 @@ def get_github_token():
     if token:
         return token
 
+    # Check Windows Credential Manager directly
+    if sys.platform == "win32":
+        try:
+            import ctypes, ctypes.wintypes
+            advapi32 = ctypes.windll.advapi32
+            class CREDENTIAL(ctypes.Structure):
+                _fields_ = [
+                    ('Flags', ctypes.wintypes.DWORD),
+                    ('Type', ctypes.wintypes.DWORD),
+                    ('TargetName', ctypes.wintypes.LPWSTR),
+                    ('Comment', ctypes.wintypes.LPWSTR),
+                    ('LastWritten', ctypes.wintypes.FILETIME),
+                    ('CredentialBlobSize', ctypes.wintypes.DWORD),
+                    ('CredentialBlob', ctypes.POINTER(ctypes.c_byte)),
+                    ('Persist', ctypes.wintypes.DWORD),
+                    ('AttributeCount', ctypes.wintypes.DWORD),
+                    ('Attributes', ctypes.c_void_p),
+                    ('TargetAlias', ctypes.wintypes.LPWSTR),
+                    ('UserName', ctypes.wintypes.LPWSTR),
+                ]
+            pcred = ctypes.POINTER(CREDENTIAL)()
+            for target in ['git:https://github.com', 'git:https://x-access-token@github.com']:
+                if advapi32.CredReadW(target, 1, 0, ctypes.byref(pcred)):
+                    blob = ctypes.string_at(pcred.contents.CredentialBlob, pcred.contents.CredentialBlobSize)
+                    for enc in ['utf-16-le', 'utf-8']:
+                        try:
+                            s = blob.decode(enc).strip()
+                            if s.startswith(('ghp_', 'gho_', 'github_pat_')) or len(s) >= 30:
+                                return s
+                        except Exception:
+                            pass
+        except Exception as e:
+            log(f"Windows Credential notice: {e}", "⚠️")
+
     # Retrieve from Git Credential Manager
     try:
         p = subprocess.Popen(
@@ -122,7 +156,7 @@ def get_github_token():
             stderr=subprocess.PIPE,
             text=True,
         )
-        out, _ = p.communicate("protocol=https\nhost=github.com\n\n")
+        out, _ = p.communicate("protocol=https\nhost=github.com\n\n", timeout=3)
         lines = [line.split("=", 1) for line in out.splitlines() if "=" in line]
         cred = dict(lines)
         token = cred.get("password")
@@ -338,11 +372,12 @@ def main():
     log("Committing changes and pushing tag to GitHub...", "📤")
     run_command("git add .", check=False)
     run_command(f'git commit -m "Release {tag_name}"', check=False)
-    run_command("git push origin master", check=False)
+    authenticated_remote = f"https://{token}@github.com/{REPO_OWNER}/{REPO_NAME}.git"
+    run_command(f"git push {authenticated_remote} master", check=False)
 
     # Tag
     run_command(f'git tag -f -a {tag_name} -m "Release {tag_name}"', check=False)
-    run_command(f"git push -f origin {tag_name}", check=False)
+    run_command(f"git push -f {authenticated_remote} {tag_name}", check=False)
 
     # 5. Create GitHub Release
     release = create_or_get_github_release(token, tag_name, release_name, release_notes)

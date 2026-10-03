@@ -15,7 +15,7 @@ class NotificationService {
   static const String channelWeekly = 'couplesync_weekly';
   static const String channelTest = 'couplesync_test_channel';
 
-  /// Default notification icon in res/drawable/ (must not have @drawable/ prefix)
+  /// Primary notification icon in res/drawable/
   static const String notificationIcon = 'ic_notification';
 
   /// Stores last error message for UI diagnostics
@@ -37,26 +37,39 @@ class NotificationService {
       tz_data.initializeTimeZones();
       _calibrateLocalTimezone();
 
-      // 2. Platform initialization settings
-      const androidSettings = AndroidInitializationSettings(notificationIcon);
+      // 2. Platform initialization settings with multi-icon fallback
       const darwinSettings = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
         requestSoundPermission: true,
       );
 
-      const initSettings = InitializationSettings(
-        android: androidSettings,
-        iOS: darwinSettings,
-        macOS: darwinSettings,
-      );
+      final candidateIcons = [
+        'ic_notification',
+        '@mipmap/ic_launcher',
+        'ic_launcher',
+      ];
 
-      await _plugin.initialize(
-        settings: initSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint('Notification clicked: ${response.payload}');
-        },
-      );
+      for (final candidate in candidateIcons) {
+        try {
+          final initSettings = InitializationSettings(
+            android: AndroidInitializationSettings(candidate),
+            iOS: darwinSettings,
+            macOS: darwinSettings,
+          );
+
+          await _plugin.initialize(
+            settings: initSettings,
+            onDidReceiveNotificationResponse: (NotificationResponse response) {
+              debugPrint('Notification clicked: ${response.payload}');
+            },
+          );
+          debugPrint('Notification plugin initialized with icon: $candidate');
+          break;
+        } catch (err) {
+          debugPrint('Icon $candidate init attempt note: $err');
+        }
+      }
 
       // 3. Register Android Notification Channels (API 26+)
       if (!kIsWeb && Platform.isAndroid) {
@@ -69,7 +82,7 @@ class NotificationService {
       }
 
       _initialized = true;
-      debugPrint('NotificationService initialized successfully with icon $notificationIcon');
+      debugPrint('NotificationService initialized successfully');
     } catch (e, stack) {
       lastError = 'Init error: $e';
       debugPrint('NotificationService init error: $e\n$stack');
@@ -266,7 +279,7 @@ class NotificationService {
     return scheduledDate;
   }
 
-  /// Schedules a future reminder with exact / inexact fallback
+  /// Schedules a future reminder with exact/inexact fallback and multi-icon resilience
   static Future<bool> scheduleReminder({
     required int id,
     required String title,
@@ -280,50 +293,59 @@ class NotificationService {
       final sId = safeId(id);
       final scheduledDate = tz.TZDateTime.from(scheduledAt, tz.local);
 
-      final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelReminders,
-          'CoupleSync Reminders',
-          channelDescription: 'Notifications for couple tasks and reminders',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: notificationIcon,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      );
+      final iconsToTry = ['ic_notification', '@mipmap/ic_launcher', null];
+      for (final iconCandidate in iconsToTry) {
+        try {
+          final details = NotificationDetails(
+            android: AndroidNotificationDetails(
+              channelReminders,
+              'CoupleSync Reminders',
+              channelDescription: 'Notifications for couple tasks and reminders',
+              importance: Importance.max,
+              priority: Priority.high,
+              playSound: true,
+              enableVibration: true,
+              icon: iconCandidate,
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          );
 
-      // Attempt exact alarm first, fallback to inexact if disallowed
-      try {
-        await _plugin.zonedSchedule(
-          id: sId,
-          title: title,
-          body: body ?? 'CoupleSync Reminder',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        );
-      } catch (e) {
-        debugPrint(
-            'Exact alarm schedule not allowed, falling back to inexact: $e');
-        await _plugin.zonedSchedule(
-          id: sId,
-          title: title,
-          body: body ?? 'CoupleSync Reminder',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
+          try {
+            await _plugin.zonedSchedule(
+              id: sId,
+              title: title,
+              body: body ?? 'CoupleSync Reminder',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            );
+          } catch (e) {
+            debugPrint(
+                'Exact alarm schedule not allowed, falling back to inexact: $e');
+            await _plugin.zonedSchedule(
+              id: sId,
+              title: title,
+              body: body ?? 'CoupleSync Reminder',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            );
+          }
+
+          debugPrint('Scheduled notification $sId at $scheduledAt (icon: $iconCandidate)');
+          return true;
+        } catch (err) {
+          debugPrint('Schedule reminder attempt with icon $iconCandidate failed: $err');
+          lastError = err.toString();
+        }
       }
-
-      debugPrint('Scheduled notification $sId at $scheduledAt');
-      return true;
+      return false;
     } catch (e) {
+      lastError = e.toString();
       debugPrint('Failed to schedule notification: $e');
       return false;
     }
@@ -343,58 +365,67 @@ class NotificationService {
       final sId = safeId(id);
       final scheduledDate = _nextInstanceOfDayAndTime(weekday, hour, minute);
 
-      final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelWeekly,
-          'Weekly Reminders',
-          channelDescription: 'Weekly repeating notifications for tasks',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: notificationIcon,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      );
+      final iconsToTry = ['ic_notification', '@mipmap/ic_launcher', null];
+      for (final iconCandidate in iconsToTry) {
+        try {
+          final details = NotificationDetails(
+            android: AndroidNotificationDetails(
+              channelWeekly,
+              'Weekly Reminders',
+              channelDescription: 'Weekly repeating notifications for tasks',
+              importance: Importance.max,
+              priority: Priority.high,
+              playSound: true,
+              enableVibration: true,
+              icon: iconCandidate,
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          );
 
-      try {
-        await _plugin.zonedSchedule(
-          id: sId,
-          title: title,
-          body: body ?? 'Weekly Task Reminder',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        );
-      } catch (e) {
-        debugPrint(
-            'Weekly exact alarm not allowed, falling back to inexact: $e');
-        await _plugin.zonedSchedule(
-          id: sId,
-          title: title,
-          body: body ?? 'Weekly Task Reminder',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        );
+          try {
+            await _plugin.zonedSchedule(
+              id: sId,
+              title: title,
+              body: body ?? 'Weekly Task Reminder',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+              matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+            );
+          } catch (e) {
+            debugPrint(
+                'Weekly exact alarm not allowed, falling back to inexact: $e');
+            await _plugin.zonedSchedule(
+              id: sId,
+              title: title,
+              body: body ?? 'Weekly Task Reminder',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+              matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+            );
+          }
+
+          debugPrint('Scheduled weekly notification $sId (icon: $iconCandidate)');
+          return true;
+        } catch (err) {
+          debugPrint('Weekly reminder attempt with icon $iconCandidate failed: $err');
+          lastError = err.toString();
+        }
       }
-
-      debugPrint(
-          'Scheduled weekly notification $sId on weekday $weekday at $hour:$minute');
-      return true;
+      return false;
     } catch (e) {
+      lastError = e.toString();
       debugPrint('Failed to schedule weekly notification: $e');
       return false;
     }
   }
 
-  /// Displays an immediate notification (e.g. partner alerts, shared tasks)
+  /// Displays an immediate notification with multi-tier icon fallback
   static Future<bool> showNotification({
     required int id,
     required String title,
@@ -408,36 +439,45 @@ class NotificationService {
       if (!_initialized) await init();
 
       final sId = safeId(id);
-      final androidDetails = AndroidNotificationDetails(
-        channelId,
-        channelName,
-        channelDescription:
-            'Notifications when your partner sets or updates shared items',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        enableVibration: true,
-        icon: notificationIcon,
-      );
-
       const darwinDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
       );
 
-      await _plugin.show(
-        id: sId,
-        title: title,
-        body: body,
-        payload: payload,
-        notificationDetails: NotificationDetails(
-          android: androidDetails,
-          iOS: darwinDetails,
-        ),
-      );
-      debugPrint('Immediate notification $sId shown successfully');
-      return true;
+      final iconsToTry = ['ic_notification', '@mipmap/ic_launcher', null];
+      for (final iconCandidate in iconsToTry) {
+        try {
+          final androidDetails = AndroidNotificationDetails(
+            channelId,
+            channelName,
+            channelDescription:
+                'Notifications when your partner sets or updates shared items',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+            icon: iconCandidate,
+          );
+
+          await _plugin.show(
+            id: sId,
+            title: title,
+            body: body,
+            payload: payload,
+            notificationDetails: NotificationDetails(
+              android: androidDetails,
+              iOS: darwinDetails,
+            ),
+          );
+          debugPrint('Immediate notification $sId shown successfully (icon: $iconCandidate)');
+          return true;
+        } catch (err) {
+          debugPrint('Failed with icon $iconCandidate: $err');
+          lastError = err.toString();
+        }
+      }
+      return false;
     } catch (e, stack) {
       lastError = e.toString();
       debugPrint('Failed to show notification: $e\n$stack');
@@ -463,54 +503,66 @@ class NotificationService {
   /// Schedules a test notification in [delaySeconds] (defaults to 5 seconds)
   static Future<bool> scheduleTestNotification({int delaySeconds = 5}) async {
     try {
+      lastError = null;
       if (!_initialized) await init();
 
       final scheduledDate =
           tz.TZDateTime.now(tz.local).add(Duration(seconds: delaySeconds));
-      final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelTest,
-          'CoupleSync Test Alerts',
-          channelDescription: 'Direct alerts and test notifications',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: notificationIcon,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      );
 
-      try {
-        await _plugin.zonedSchedule(
-          id: 888888,
-          title: 'CoupleSync Test 🔔',
-          body:
-              'Scheduled test notification arrived after $delaySeconds seconds! ❤️',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        );
-      } catch (e) {
-        debugPrint('Test exact alarm fallback to inexact: $e');
-        await _plugin.zonedSchedule(
-          id: 888888,
-          title: 'CoupleSync Test 🔔',
-          body:
-              'Scheduled test notification arrived after $delaySeconds seconds! ❤️',
-          scheduledDate: scheduledDate,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
+      final iconsToTry = ['ic_notification', '@mipmap/ic_launcher', null];
+      for (final iconCandidate in iconsToTry) {
+        try {
+          final details = NotificationDetails(
+            android: AndroidNotificationDetails(
+              channelTest,
+              'CoupleSync Test Alerts',
+              channelDescription: 'Direct alerts and test notifications',
+              importance: Importance.max,
+              priority: Priority.high,
+              playSound: true,
+              enableVibration: true,
+              icon: iconCandidate,
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          );
+
+          try {
+            await _plugin.zonedSchedule(
+              id: 888888,
+              title: 'CoupleSync Test 🔔',
+              body:
+                  'Scheduled test notification arrived after $delaySeconds seconds! ❤️',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            );
+          } catch (e) {
+            debugPrint('Test exact alarm fallback to inexact: $e');
+            await _plugin.zonedSchedule(
+              id: 888888,
+              title: 'CoupleSync Test 🔔',
+              body:
+                  'Scheduled test notification arrived after $delaySeconds seconds! ❤️',
+              scheduledDate: scheduledDate,
+              notificationDetails: details,
+              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            );
+          }
+
+          debugPrint('Scheduled test notification in $delaySeconds seconds (icon: $iconCandidate)');
+          return true;
+        } catch (err) {
+          debugPrint('Test notification attempt with icon $iconCandidate failed: $err');
+          lastError = err.toString();
+        }
       }
-
-      debugPrint('Scheduled test notification in $delaySeconds seconds');
-      return true;
+      return false;
     } catch (e) {
+      lastError = e.toString();
       debugPrint('Failed to schedule test notification: $e');
       return false;
     }

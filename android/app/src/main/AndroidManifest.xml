@@ -20,6 +20,15 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
+
+        <!-- Default notification icon and channel metadata -->
+        <meta-data
+            android:name="default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.dexterous.flutterlocalnotifications.default_notification_channel_id"
+            android:value="couplesync_reminders" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

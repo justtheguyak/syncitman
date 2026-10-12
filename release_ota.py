@@ -9,10 +9,9 @@ This script:
 2. Reads or bumps version from `pubspec.yaml`
 3. Builds the Android release APK (`flutter build apk --release`)
 4. Retrieves GitHub credentials from Git Credential Manager
-5. Ensures repository is public so phone OTA updates download without auth
-6. Commits, tags, and pushes to GitHub
-7. Creates a GitHub Release and uploads `app-release.apk` and `CoupleSync-vX.X.X.apk`
-8. Updates Supabase `app_updates` table for dual-channel OTA redundancy
+5. Commits, tags, and pushes to GitHub
+6. Creates a GitHub Release and uploads `app-release.apk` and `CoupleSync-vX.X.X.apk`
+7. Updates Supabase `app_updates` table for dual-channel OTA redundancy
 """
 
 import argparse
@@ -169,37 +168,7 @@ def get_github_token():
     sys.exit(1)
 
 
-def ensure_repo_is_public(token):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "CoupleSync-Release-Script",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-            if data.get("private") is True:
-                log("Repository is currently private. Switching to public so phone OTA downloads work without login...", "🔓")
-                patch_req = urllib.request.Request(
-                    url,
-                    data=json.dumps({"private": False}).encode(),
-                    headers={
-                        "Authorization": f"token {token}",
-                        "Accept": "application/vnd.github.v3+json",
-                        "User-Agent": "CoupleSync-Release-Script",
-                    },
-                    method="PATCH",
-                )
-                with urllib.request.urlopen(patch_req) as patch_resp:
-                    log("Repository is now public! ✅", "✨")
-            else:
-                log("Repository is public. OTA downloads will be accessible to all devices.", "✅")
-    except Exception as e:
-        log(f"Could not check/toggle repo privacy: {e}", "⚠️")
+# Repository privacy remains unchanged (private)
 
 
 def create_or_get_github_release(token, tag, release_name, notes):
@@ -350,10 +319,7 @@ def main():
     # 1. Fetch GitHub Token
     token = get_github_token()
 
-    # 2. Ensure repository is public
-    ensure_repo_is_public(token)
-
-    # 3. Flutter Build
+    # 2. Flutter Build
     apk_path = os.path.join(PROJECT_ROOT, "build", "app", "outputs", "flutter-apk", "app-release.apk")
     if not args.skip_build or not os.path.exists(apk_path):
         log("Building release APK via Flutter...", "🔨")

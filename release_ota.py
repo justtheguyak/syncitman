@@ -336,7 +336,7 @@ def main():
 
     # 4. Git Commit & Push
     log("Committing changes and pushing tag to GitHub...", "📤")
-    run_command("git add .", check=False)
+    run_command("git add -A", check=False)
     run_command(f'git commit -m "Release {tag_name}"', check=False)
     authenticated_remote = f"https://{token}@github.com/{REPO_OWNER}/{REPO_NAME}.git"
     run_command(f"git push {authenticated_remote} master", check=False)

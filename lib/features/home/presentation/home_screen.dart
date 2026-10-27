@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../shared/services/notification_service.dart';
+import '../../../shared/services/push_notification_service.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../reminders/presentation/reminders_notifier.dart';
 import '../../reminders/presentation/reminders_screen.dart';
 import '../../tasks/presentation/tasks_notifier.dart';
 import '../../tasks/presentation/tasks_screen.dart';
@@ -22,6 +25,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.requestPermissions();
+      PushNotificationService.syncTokenWithSupabase();
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user != null) {
+        PushNotificationService.startGlobalPartnerListener(user.id);
+      }
     });
   }
 
@@ -33,6 +41,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep both tasks and reminders streams active
+    ref.watch(tasksProvider);
+    ref.watch(remindersProvider);
+
     final pendingCount = ref.watch(pendingTasksCountProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

@@ -74,8 +74,17 @@ class ProfileRepository {
   }
 
   Future<void> updateAvatar(String userId, String? avatarUrl) async {
+    String? combined = avatarUrl;
+    try {
+      final current = await fetchProfile(userId);
+      final token = current?.fcmToken;
+      if (token != null && token.isNotEmpty) {
+        combined = '${avatarUrl ?? ""}|||FCM:$token';
+      }
+    } catch (_) {}
+
     await _client.from('profiles').update({
-      'avatar_url': avatarUrl,
+      'avatar_url': combined,
     }).eq('id', userId);
   }
 

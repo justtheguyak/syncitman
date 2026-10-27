@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../profile/presentation/profile_notifier.dart';
 import 'reminders_notifier.dart';
 
 class CreateReminderScreen extends ConsumerStatefulWidget {
@@ -21,7 +22,7 @@ class _CreateReminderScreenState extends ConsumerState<CreateReminderScreen> {
   final _noteController = TextEditingController();
 
   late DateTime _remindAt;
-  bool _isShared = false;
+  bool _isShared = true;
   bool _isSaving = false;
 
   @override
@@ -115,6 +116,10 @@ class _CreateReminderScreenState extends ConsumerState<CreateReminderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final profileState = ref.watch(profileNotifierProvider).value;
+    final partner = profileState?.partnerProfile;
+    final partnerName = partner?.displayName ?? 'Partner';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.createReminder),
@@ -182,31 +187,50 @@ class _CreateReminderScreenState extends ConsumerState<CreateReminderScreen> {
                 const SizedBox(height: 24),
 
                 // Share with Partner Switch
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  secondary: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.favorite_rounded,
-                      color: AppColors.secondary,
-                      size: 22,
+                Container(
+                  decoration: BoxDecoration(
+                    color: _isShared
+                        ? AppColors.secondary.withOpacity(0.08)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _isShared
+                          ? AppColors.secondary.withOpacity(0.3)
+                          : Theme.of(context).dividerColor,
                     ),
                   ),
-                  title: const Text(
-                    AppStrings.shareWithPartner,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  child: SwitchListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    secondary: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: AppColors.secondary,
+                        size: 22,
+                      ),
+                    ),
+                    title: Text(
+                      partner != null
+                          ? 'Share with $partnerName 💕'
+                          : AppStrings.shareWithPartner,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    subtitle: Text(
+                      _isShared
+                          ? 'Both of you will be alerted on your phones at this time'
+                          : 'Private reminder: only you will see and receive this',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _isShared,
+                    activeThumbColor: AppColors.secondary,
+                    onChanged: (val) => setState(() => _isShared = val),
                   ),
-                  subtitle: const Text(
-                    AppStrings.shareWithPartnerDesc,
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  value: _isShared,
-                  activeThumbColor: AppColors.secondary,
-                  onChanged: (val) => setState(() => _isShared = val),
                 ),
                 const SizedBox(height: 36),
 

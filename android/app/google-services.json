@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "143907820602",
+    "project_id": "couplesync-syncitman",
+    "storage_bucket": "couplesync-syncitman.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:143907820602:android:602af907e78d09a8b05103",
+        "android_client_info": {
+          "package_name": "com.example.couple_sync"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_H_44hXDDmTt7xJhKBj66gMl5SwejObM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

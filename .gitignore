@@ -45,3 +45,11 @@ app.*.map.json
 /android/app/release
 /release/
 *.apk
+
+# Secrets and service accounts
+*service-account*.json
+*.pem
+*.jks
+*.keystore
+
+.temp/

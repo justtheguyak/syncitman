@@ -12,6 +12,7 @@ import '../../../shared/widgets/theme_toggle.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../updates/presentation/update_notifier.dart';
 import '../../../shared/services/notification_service.dart';
+import '../../../shared/services/push_notification_service.dart';
 import 'avatar_crop_screen.dart';
 import 'profile_notifier.dart';
 
@@ -334,6 +335,49 @@ class ProfileScreen extends ConsumerWidget {
                         }
                       },
                     ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.favorite_rounded,
+                          color: AppColors.secondary),
+                      title: const Text('Test Partner Push Alert'),
+                      subtitle: Text(partner != null
+                          ? 'Send an immediate push ping to ${partner.displayName}\'s phone 💕'
+                          : 'Link your partner above to enable partner alerts'),
+                      trailing: const Icon(Icons.send_rounded, size: 20),
+                      onTap: () async {
+                        if (partner == null) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please link your partner first! ❤️'),
+                                backgroundColor: AppColors.priorityHigh,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        final sent = await PushNotificationService.sendPartnerPush(
+                          partnerId: partner.id,
+                          title: '💕 Ping from $myName',
+                          body: 'Testing partner notifications! Everything is synced ❤️',
+                          data: {'type': 'test_ping'},
+                        );
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(sent
+                                  ? 'Alert sent to ${partner.displayName}\'s phone! 🔔'
+                                  : 'Could not send alert. Check partner\'s connection.'),
+                              backgroundColor: sent
+                                  ? AppColors.statusDone
+                                  : AppColors.priorityHigh,
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
 
@@ -408,7 +452,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'CoupleSync v1.0.5 • Made with love',
+                  'CoupleSync v1.0.6 • Made with love',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
